@@ -28,11 +28,27 @@ jobs:
         with:
           name: HikofanMobil-APK
           path: HikofanMobil.apk
-      - name: Release olustur (sabit indirme linki icin)
+      - name: Yama (delta) hazirla
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "v${{ github.run_number }}" HikofanMobil.apk \
+          sha256sum HikofanMobil.apk | cut -d' ' -f1 > HikofanMobil.apk.sha256
+          PREV=$(gh release view --json tagName -q .tagName 2>/dev/null || true)
+          echo "onceki surum: $PREV"
+          if [ -n "$PREV" ]; then
+            if gh release download "$PREV" --pattern HikofanMobil.apk --output prev.apk; then
+              sudo apt-get update -y > /dev/null
+              sudo apt-get install -y bsdiff > /dev/null
+              bsdiff prev.apk HikofanMobil.apk "patch-${PREV#v}-${{ github.run_number }}.bin"
+              ls -l patch-*.bin
+            fi
+          fi
+      - name: Release olustur (sabit indirme linki + yama)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FILES="HikofanMobil.apk HikofanMobil.apk.sha256 $(ls patch-*.bin 2>/dev/null || true)"
+          gh release create "v${{ github.run_number }}" $FILES \
             --title "HIKOFAN v${{ github.run_number }}" \
             --notes "Otomatik derleme" \
             --latest
