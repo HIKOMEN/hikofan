@@ -59,16 +59,16 @@ import java.util.concurrent.Executors
 class MainActivity : AppCompatActivity() {
 
     // ---- tema ----
-    private val cBg = Color.parseColor("#07060c")
-    private val cBgTop = Color.parseColor("#17102e")
-    private val cCard = Color.parseColor("#13101f")
-    private val cCard2 = Color.parseColor("#0d0a16")
-    private val cBorder = Color.parseColor("#2a2244")
-    private val cAccent = Color.parseColor("#8b5cf6")
-    private val cAccentD = Color.parseColor("#6d46e8")
-    private val cAccentL = Color.parseColor("#c4b5fd")
-    private val cText = Color.parseColor("#f1eefb")
-    private val cMuted = Color.parseColor("#9a93b8")
+    private val cBg = Color.parseColor("#05070d")
+    private val cBgTop = Color.parseColor("#0b1a3a")
+    private val cCard = Color.parseColor("#0e1424")
+    private val cCard2 = Color.parseColor("#090d18")
+    private val cBorder = Color.parseColor("#1c2a4a")
+    private val cAccent = Color.parseColor("#3b82f6")
+    private val cAccentD = Color.parseColor("#2563eb")
+    private val cAccentL = Color.parseColor("#93c5fd")
+    private val cText = Color.parseColor("#eef3ff")
+    private val cMuted = Color.parseColor("#8f9bb8")
     private val cOk = Color.parseColor("#4ade80")
     private val cWarn = Color.parseColor("#fbbf24")
     private val cErr = Color.parseColor("#f87171")
@@ -94,6 +94,12 @@ class MainActivity : AppCompatActivity() {
     private var maxRes = 0                       // 0 = en yuksek
     private var lastSavedUri: Uri? = null
     private var lastSavedMime = "video/mp4"
+
+    // Tarayicidan gelen akis (m3u8) icin: o sitenin istedigi basliklar
+    private var hdrUrl: String? = null
+    private var hdrReferer = ""
+    private var hdrUa = ""
+    private var hdrCookie = ""
 
     // arayuz parcalari
     private lateinit var urlBox: EditText
@@ -141,6 +147,7 @@ class MainActivity : AppCompatActivity() {
             if (n != null && n > currentCode()) {
                 updateBanner.text = "⬆  Yeni sürüm var (v$n) – dokun ve güncelle"
                 updateBanner.visibility = View.VISIBLE
+                showUpdateDialog(n)
             }
         }
     }
@@ -155,6 +162,18 @@ class MainActivity : AppCompatActivity() {
         if (i?.action == Intent.ACTION_SEND) {
             val t = i.getStringExtra(Intent.EXTRA_TEXT)
             if (!t.isNullOrBlank()) urlBox.setText(extractUrl(t) ?: t)
+        }
+        // Uygulama ici tarayicidan "Indir"e basilinca
+        if (i?.action == "com.hikofan.mobil.DOWNLOAD") {
+            val u = i.getStringExtra("url")
+            if (!u.isNullOrBlank()) {
+                hdrUrl = extractUrl(u) ?: u
+                hdrReferer = i.getStringExtra("referer") ?: ""
+                hdrUa = i.getStringExtra("ua") ?: ""
+                hdrCookie = i.getStringExtra("cookie") ?: ""
+                lastInfoUrl = null
+                urlBox.setText(u)
+            }
         }
     }
 
@@ -224,6 +243,12 @@ class MainActivity : AppCompatActivity() {
             background = rounded(cCard, 20, cBorder)
         }
         gear.setOnClickListener { showSettings() }
+        val globe = TextView(this).apply {
+            text = "🌐"; textSize = 18f; gravity = Gravity.CENTER
+            background = rounded(cCard, 20, cBorder)
+        }
+        globe.setOnClickListener { openBrowser() }
+        top.addView(globe, lp(dp(40), dp(40), left = 10))
         top.addView(gear, lp(dp(40), dp(40), left = 10))
         col.addView(top, lp(MATCH_PARENT, WRAP_CONTENT))
 
@@ -246,7 +271,7 @@ class MainActivity : AppCompatActivity() {
         }
         urlBox = EditText(this).apply {
             hint = "Video linkini buraya yapıştır"
-            setHintTextColor(Color.parseColor("#665f86"))
+            setHintTextColor(Color.parseColor("#566383"))
             setTextColor(cText); textSize = 15f
             setSingleLine(true)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
@@ -292,7 +317,7 @@ class MainActivity : AppCompatActivity() {
         hero.addView(TextView(this).apply {
             text = "↓"; textSize = 34f; setTextColor(cAccent); typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-            background = rounded(Color.parseColor("#1d1536"), 32)
+            background = rounded(Color.parseColor("#0f1f45"), 32)
         }, LinearLayout.LayoutParams(dp(64), dp(64)))
         hero.addView(TextView(this).apply {
             text = "Bir link yapıştır"; textSize = 18f; typeface = Typeface.DEFAULT_BOLD; setTextColor(cText)
@@ -302,6 +327,15 @@ class MainActivity : AppCompatActivity() {
             text = "YouTube • Instagram • X • TikTok • Facebook\nve 1000'den fazla site"
             textSize = 13f; setTextColor(cMuted); gravity = Gravity.CENTER
         }, lp(WRAP_CONTENT, WRAP_CONTENT, top = 6))
+        val heroBrowse = TextView(this).apply {
+            text = "🌐  Linkin yok mu? Siteyi tarayıcıda aç"
+            textSize = 14f; typeface = Typeface.DEFAULT_BOLD; setTextColor(cAccentL)
+            gravity = Gravity.CENTER
+            background = rounded(cCard, 22, cBorder)
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+        }
+        heroBrowse.setOnClickListener { openBrowser() }
+        hero.addView(heroBrowse, lp(WRAP_CONTENT, WRAP_CONTENT, top = 22))
         col.addView(hero, lp(MATCH_PARENT, WRAP_CONTENT, top = 18))
 
         // ---- onizleme karti
@@ -449,7 +483,7 @@ class MainActivity : AppCompatActivity() {
 
         resultRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; visibility = View.GONE }
         val btnOpen = mkButton("Aç", cAccent)
-        val btnShare = mkButton("Paylaş", Color.parseColor("#2a1d55"))
+        val btnShare = mkButton("Paylaş", Color.parseColor("#16295a"))
         btnOpen.setOnClickListener { lastSavedUri?.let { openUri(it, lastSavedMime) } }
         btnShare.setOnClickListener { shareSaved() }
         resultRow.addView(btnOpen, lp(0, dp(44), 1f))
@@ -586,6 +620,7 @@ class MainActivity : AppCompatActivity() {
         infoWorker.execute {
             try {
                 val r = YoutubeDLRequest(url)
+                applyHeaders(r, url)
                 r.addOption("--dump-single-json")
                 r.addOption("--no-playlist")
                 r.addOption("--no-warnings")
@@ -737,6 +772,43 @@ class MainActivity : AppCompatActivity() {
         }.start()
     }
 
+    // Acilista yeni surum varsa ortada cikan pencere: Guncelle / Simdi degil
+    private fun showUpdateDialog(n: Int) {
+        if (isFinishing) return
+        val d = Dialog(this)
+        d.requestWindowFeature(Window.FEATURE_NO_TITLE)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(cCard, 24, cBorder)
+            setPadding(dp(22), dp(24), dp(22), dp(20))
+        }
+        box.addView(TextView(this).apply {
+            text = "⬆"; textSize = 32f; setTextColor(cAccent); gravity = Gravity.CENTER
+        }, lp(MATCH_PARENT, WRAP_CONTENT))
+        box.addView(TextView(this).apply {
+            text = "Yeni sürüm var"; textSize = 20f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        }, lp(MATCH_PARENT, WRAP_CONTENT, top = 6))
+        box.addView(TextView(this).apply {
+            text = "HIKOFAN v$n yayınlandı. Güncelle'ye dokun, inen dosyayı aç ve Yükle'ye bas."
+            textSize = 14f; setTextColor(cMuted); gravity = Gravity.CENTER
+        }, lp(MATCH_PARENT, WRAP_CONTENT, top = 8))
+        val bUpd = mkButton("Güncelle", cAccent)
+        bUpd.setOnClickListener { d.dismiss(); openUrl(apkUrl) }
+        val bLater = mkButton("Şimdi değil", cCard2).apply {
+            background = rounded(cCard2, 14, cBorder); setTextColor(cMuted)
+        }
+        bLater.setOnClickListener { d.dismiss() }
+        box.addView(bUpd, lp(MATCH_PARENT, dp(48), top = 20))
+        box.addView(bLater, lp(MATCH_PARENT, dp(46), top = 8))
+        d.setContentView(box)
+        d.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setLayout(resources.displayMetrics.widthPixels - dp(40), WRAP_CONTENT)
+        }
+        d.show()
+    }
+
     private fun openUrl(u: String) {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
@@ -775,7 +847,7 @@ class MainActivity : AppCompatActivity() {
         val res = TextView(this).apply { textSize = 14f; setTextColor(cMuted) }
         val btnGet = mkButton("↓  Yeni sürümü indir", cAccent).apply { visibility = View.GONE }
         btnGet.setOnClickListener { openUrl(apkUrl) }
-        val btnCheck = mkButton("Güncellemeyi kontrol et", Color.parseColor("#2a1d55"))
+        val btnCheck = mkButton("Güncellemeyi kontrol et", Color.parseColor("#16295a"))
         btnCheck.setOnClickListener {
             res.text = "Kontrol ediliyor…"; res.setTextColor(cMuted)
             checkUpdate { n ->
@@ -801,7 +873,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(12), dp(12), dp(12))
         }, lp(MATCH_PARENT, WRAP_CONTENT, top = 8))
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val bCopy = mkButton("Linki kopyala", Color.parseColor("#2a1d55"))
+        val bCopy = mkButton("Linki kopyala", Color.parseColor("#16295a"))
         val bShare = mkButton("Paylaş (WhatsApp…)", cAccent)
         bCopy.setOnClickListener {
             (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager)
@@ -840,6 +912,18 @@ class MainActivity : AppCompatActivity() {
         d.show()
     }
 
+    private fun openBrowser() {
+        startActivity(Intent(this, BrowserActivity::class.java))
+    }
+
+    // Tarayicidan gelen adres icin referer/cerez/user-agent bilgisini yt-dlp'ye verir
+    private fun applyHeaders(r: YoutubeDLRequest, url: String) {
+        if (url != hdrUrl) return
+        if (hdrReferer.isNotBlank()) r.addOption("--referer", hdrReferer)
+        if (hdrUa.isNotBlank()) r.addOption("--user-agent", hdrUa)
+        if (hdrCookie.isNotBlank()) r.addOption("--add-header", "Cookie:" + hdrCookie)
+    }
+
     private fun extractUrl(t: String): String? =
         Regex("https?://\\S+").find(t)?.value?.trimEnd(')', ']', '.', ',')
 
@@ -871,6 +955,7 @@ class MainActivity : AppCompatActivity() {
             tmp.deleteRecursively(); tmp.mkdirs()
             try {
                 val r = YoutubeDLRequest(url)
+                applyHeaders(r, url)
                 r.addOption("--no-playlist")
                 r.addOption("--windows-filenames")
                 r.addOption("--no-mtime")
